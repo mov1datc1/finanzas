@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import dayjs from "dayjs";
+import apiClient from "../services/apiClient";
 
 export default function TareasAdmin() {
   const [tareas, setTareas] = useState([]);
@@ -8,16 +9,20 @@ export default function TareasAdmin() {
   const [agrupadas, setAgrupadas] = useState({});
   const [mostrarMeses, setMostrarMeses] = useState({});
   const [contador, setContador] = useState({ total: 0, completadas: 0 });
+  const [cargando, setCargando] = useState(false);
 
   const fetchTareas = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/tareas");
-      const data = await res.json();
+      setCargando(true);
+      setMensaje("");
+      const { data } = await apiClient.get("/tareas");
       setTareas(data);
       agruparPorMes(data);
       contarTareasMes(data);
     } catch (error) {
-      setMensaje("Error al cargar las tareas");
+      setMensaje(error.message || "Error al cargar las tareas");
+    } finally {
+      setCargando(false);
     }
   };
 
@@ -48,41 +53,42 @@ export default function TareasAdmin() {
 
   const agregarTarea = async () => {
     if (!nuevaTarea.trim()) return;
-    const res = await fetch("http://localhost:5000/api/tareas", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ descripcion: nuevaTarea })
-    });
-    if (res.ok) {
+    try {
+      await apiClient.post("/tareas", { descripcion: nuevaTarea });
       setNuevaTarea("");
       fetchTareas();
+    } catch (error) {
+      setMensaje(error.message);
     }
   };
 
   const actualizarTarea = async (id, actualizaciones) => {
-    await fetch(`http://localhost:5000/api/tareas/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(actualizaciones)
-    });
-    fetchTareas();
+    try {
+      await apiClient.put(`/tareas/${id}`, actualizaciones);
+      fetchTareas();
+    } catch (error) {
+      setMensaje(error.message);
+    }
   };
 
   const eliminarTarea = async (id) => {
-    await fetch(`http://localhost:5000/api/tareas/${id}`, {
-      method: "DELETE" });
-    fetchTareas();
+    try {
+      await apiClient.delete(`/tareas/${id}`);
+      fetchTareas();
+    } catch (error) {
+      setMensaje(error.message);
+    }
   };
 
   const duplicarTarea = async (tarea) => {
     const nueva = { ...tarea, fecha: new Date(), completada: false };
     delete nueva._id;
-    await fetch("http://localhost:5000/api/tareas", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(nueva)
-    });
-    fetchTareas();
+    try {
+      await apiClient.post("/tareas", nueva);
+      fetchTareas();
+    } catch (error) {
+      setMensaje(error.message);
+    }
   };
 
   const toggleMostrar = (clave) => {
@@ -111,6 +117,8 @@ export default function TareasAdmin() {
       <div className="mb-2 text-sm text-gray-600 text-right">
         Tareas del mes: {contador.completadas} completadas de {contador.total}
       </div>
+
+      {cargando && <p className="text-sm text-blue-600 mb-2">Cargando tareas...</p>}
 
       {mensaje && <p className="text-red-600 text-sm mb-2">{mensaje}</p>}
 

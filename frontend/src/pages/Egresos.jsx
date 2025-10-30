@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import apiClient from "../services/apiClient";
 
 export default function Egresos() {
   const [form, setForm] = useState({
@@ -14,12 +15,23 @@ export default function Egresos() {
   const [mensaje, setMensaje] = useState("");
   const [historial, setHistorial] = useState([]);
   const [filtro, setFiltro] = useState("");
+  const [cargando, setCargando] = useState(false);
 
   useEffect(() => {
-    fetch("http://localhost:5000/api/egresos")
-      .then(res => res.json())
-      .then(data => setHistorial(data))
-      .catch(() => setHistorial([]));
+    const cargarHistorial = async () => {
+      try {
+        setCargando(true);
+        const { data } = await apiClient.get("/egresos");
+        setHistorial(data);
+      } catch (error) {
+        setMensaje(`❌ ${error.message}`);
+        setHistorial([]);
+      } finally {
+        setCargando(false);
+      }
+    };
+
+    cargarHistorial();
   }, []);
 
   const categoriasEgresos = ["Nómina", "Renta", "Servicios", "Publicidad", "Materiales", "Impuestos", "Otros"];
@@ -40,18 +52,17 @@ export default function Egresos() {
       ...form,
       fuente: form.fuente === "Otro" ? form.otraFuente : form.fuente,
     };
+    delete datos.otraFuente;
 
-    const response = await fetch("http://localhost:5000/api/egresos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(datos),
-    });
-
-    if (response.ok) {
+    try {
+      datos.monto = Number(datos.monto);
+      await apiClient.post("/egresos", datos);
       setMensaje("✅ Egreso registrado correctamente");
       setForm({ descripcion: "", monto: "", fecha: "", categoria: "", tipoFlujo: "", fuente: "", otraFuente: "" });
-    } else {
-      setMensaje("❌ Error al guardar el egreso");
+      const { data } = await apiClient.get("/egresos");
+      setHistorial(data);
+    } catch (error) {
+      setMensaje(`❌ ${error.message}`);
     }
   };
 
@@ -75,8 +86,16 @@ export default function Egresos() {
     <div className="max-w-xl mx-auto mt-10 bg-white p-8 rounded shadow">
       <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Registrar Egreso</h2>
 
+      {cargando && (
+        <div className="mb-4 p-3 text-center text-sm text-blue-700 bg-blue-100 rounded">Cargando historial de egresos...</div>
+      )}
+
       {mensaje && (
-        <div className="mb-4 p-3 text-center text-sm text-red-800 bg-red-100 rounded">{mensaje}</div>
+        <div
+          className={`mb-4 p-3 text-center text-sm rounded ${mensaje.includes('✅') ? 'text-green-800 bg-green-100' : 'text-red-800 bg-red-100'}`}
+        >
+          {mensaje}
+        </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">

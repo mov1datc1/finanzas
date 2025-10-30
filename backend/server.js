@@ -3,8 +3,25 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
 
+const parseAllowedOrigins = (value) => {
+  if (!value) return undefined;
+
+  const origins = value
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean);
+
+  if (origins.length === 0 || origins.includes('*')) {
+    return undefined;
+  }
+
+  return origins;
+};
+
+const allowedOrigins = parseAllowedOrigins(process.env.ALLOWED_ORIGINS);
+
 const app = express();
-app.use(cors());
+app.use(cors({ origin: allowedOrigins ?? true }));
 app.use(express.json());
 
 // Importar rutas
@@ -21,7 +38,7 @@ app.use('/api/egresos', egresosRoutes);
 app.use('/api/flujo-caja', flujoCajaRoutes);
 app.use('/api/tareas', tareasRoutes);
 app.use('/api', estadoResultadosRoutes);
-app.use('/api', require('./routes/kpis')); 
+app.use('/api', kpisRoutes);
 
 // Ruta catch-all para 404
 app.use((req, res) => {
@@ -29,8 +46,29 @@ app.use((req, res) => {
 });
 
 // Conexión a MongoDB y arranque del servidor
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => {
-    app.listen(process.env.PORT, () => console.log(`Servidor iniciado en puerto ${process.env.PORT}`));
-  })
-  .catch(err => console.error('Error al conectar MongoDB:', err));
+const PORT = process.env.PORT ? Number(process.env.PORT) : 5000;
+const { MONGO_URI } = process.env;
+
+if (!MONGO_URI) {
+  console.error('⚠️  MONGO_URI no está definido. No es posible iniciar el servidor.');
+  process.exit(1);
+}
+
+mongoose.set('strictQuery', true);
+
+const startServer = async () => {
+  try {
+    await mongoose.connect(MONGO_URI);
+    app.listen(PORT, () => console.log(`Servidor iniciado en puerto ${PORT}`));
+  } catch (err) {
+    console.error('Error al conectar MongoDB:', err);
+    process.exit(1);
+  }
+};
+
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = app;
+module.exports.startServer = startServer;

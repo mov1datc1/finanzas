@@ -33,7 +33,7 @@ router.get("/anual/:anio", async (req, res) => {
           case "Inversión":
             resumenMensual[mes].ingresosInversion += ing.monto;
             break;
-          case "Financiero":
+          case "Financiamiento":
             resumenMensual[mes].ingresosFinancieros += ing.monto;
             break;
         }
@@ -51,7 +51,7 @@ router.get("/anual/:anio", async (req, res) => {
           case "Inversión":
             resumenMensual[mes].egresosInversion += eg.monto;
             break;
-          case "Financiero":
+          case "Financiamiento":
             resumenMensual[mes].egresosFinancieros += eg.monto;
             break;
         }

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { format } from 'date-fns';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -8,6 +7,7 @@ import {
   PencilIcon,
   TrashIcon,
 } from '@heroicons/react/24/outline';
+import apiClient from '../services/apiClient';
 
 const formatoMXN = (valor) =>
   valor.toLocaleString('es-MX', { minimumFractionDigits: 2 });
@@ -21,12 +21,16 @@ export default function ResumenFinanciero() {
   const [editando, setEditando] = useState(null);
   const [formEdit, setFormEdit] = useState({ descripcion: '', monto: 0, fecha: '', categoria: '', tipoFlujo: '' });
   const [confirmacion, setConfirmacion] = useState({ id: null, tipo: '' });
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState('');
 
   const fetchResumen = async () => {
     try {
+      setCargando(true);
+      setError('');
       const [resI, resE] = await Promise.all([
-        axios.get('http://localhost:5000/api/ingresos'),
-        axios.get('http://localhost:5000/api/egresos'),
+        apiClient.get('/ingresos'),
+        apiClient.get('/egresos'),
       ]);
       const allI = resI.data;
       const allE = resE.data;
@@ -56,7 +60,7 @@ export default function ResumenFinanciero() {
         monto: acumulado,
         fecha: fechaInicio,
         categoria: 'Saldo',
-        tipoFlujo: 'Financiero',
+        tipoFlujo: 'Financiamiento',
         isSaldo: true,
       };
 
@@ -73,6 +77,9 @@ export default function ResumenFinanciero() {
       setEgresos(egresosActual);
     } catch (error) {
       console.error('Error al cargar datos:', error);
+      setError(error.message);
+    } finally {
+      setCargando(false);
     }
   };
 
@@ -92,21 +99,36 @@ export default function ResumenFinanciero() {
   };
 
   const guardarEdicion = async () => {
-    await axios.put(
-      `http://localhost:5000/api/${editando.tipo}/${editando.id}`,
-      formEdit
-    );
-    cancelarEdicion();
-    fetchResumen();
+    try {
+      const { _id, isSaldo, ...editable } = formEdit;
+      const payload = {
+        ...editable,
+        monto: Number(editable.monto ?? 0)
+      };
+      await apiClient.put(
+        `/${editando.tipo}/${editando.id}`,
+        payload
+      );
+      cancelarEdicion();
+      fetchResumen();
+    } catch (err) {
+      console.error('Error al guardar edición:', err);
+      setError(err.message);
+    }
   };
 
   const confirmarElim = (id, tipo) => setConfirmacion({ id, tipo });
   const ejecutarElim = async () => {
-    await axios.delete(
-      `http://localhost:5000/api/${confirmacion.tipo}/${confirmacion.id}`
-    );
-    setConfirmacion({ id: null, tipo: '' });
-    fetchResumen();
+    try {
+      await apiClient.delete(
+        `/${confirmacion.tipo}/${confirmacion.id}`
+      );
+      setConfirmacion({ id: null, tipo: '' });
+      fetchResumen();
+    } catch (err) {
+      console.error('Error al eliminar registro:', err);
+      setError(err.message);
+    }
   };
 
   const exportarPDF = async () => {
@@ -135,6 +157,20 @@ export default function ResumenFinanciero() {
           Exportar PDF
         </button>
       </div>
+
+      {cargando && (
+        <div className="mb-4 flex items-center gap-2 rounded bg-blue-50 p-3 text-blue-700">
+          <span className="animate-spin text-blue-500">⏳</span>
+          Cargando información financiera...
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-4 flex items-center gap-2 rounded bg-red-50 p-3 text-red-700">
+          <ExclamationTriangleIcon className="h-5 w-5" />
+          {error}
+        </div>
+      )}
 
       <div className="flex gap-4 mb-6">
         <select

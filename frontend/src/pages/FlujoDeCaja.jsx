@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
-import { format } from "date-fns";
+import apiClient from "../services/apiClient";
 
 const formatoMXN = (valor) =>
   valor.toLocaleString("es-MX", { minimumFractionDigits: 2 });
@@ -10,14 +9,18 @@ const EstadoResultados = () => {
   const [resumen, setResumen] = useState(null);
   const [anterior, setAnterior] = useState(null);
   const [mensual, setMensual] = useState([]);
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setCargando(true);
+        setError("");
         const [resActual, resAnterior, resMensual] = await Promise.all([
-          axios.get(`http://localhost:5000/api/estado-resultados/${anio}`),
-          axios.get(`http://localhost:5000/api/estado-resultados/${anio - 1}`),
-          axios.get(`http://localhost:5000/api/estado-resultados/mensual/${anio}`)
+          apiClient.get(`/estado-resultados/${anio}`),
+          apiClient.get(`/estado-resultados/${anio - 1}`),
+          apiClient.get(`/estado-resultados/mensual/${anio}`)
         ]);
 
         // Llevar saldo de EBITDA mes a mes
@@ -42,6 +45,9 @@ const EstadoResultados = () => {
         setResumen(null);
         setAnterior(null);
         setMensual([]);
+        setError(error.message);
+      } finally {
+        setCargando(false);
       }
     };
     fetchData();
@@ -75,6 +81,18 @@ const EstadoResultados = () => {
           ))}
         </select>
       </div>
+
+      {cargando && (
+        <div className="mb-4 rounded bg-blue-50 p-3 text-blue-700">
+          Recuperando estado de resultados...
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-4 rounded bg-red-50 p-3 text-red-700">
+          {error}
+        </div>
+      )}
 
       {resumen && anterior && (
         <div className="overflow-auto mb-10">

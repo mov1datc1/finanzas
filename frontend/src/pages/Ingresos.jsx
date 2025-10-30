@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import apiClient from "../services/apiClient";
 
 export default function Ingresos() {
   const [form, setForm] = useState({
@@ -14,12 +15,23 @@ export default function Ingresos() {
   const [mensaje, setMensaje] = useState("");
   const [historial, setHistorial] = useState([]);
   const [filtro, setFiltro] = useState("");
+  const [cargando, setCargando] = useState(false);
 
   useEffect(() => {
-    fetch("http://localhost:5000/api/ingresos")
-      .then(res => res.json())
-      .then(data => setHistorial(data))
-      .catch(() => setHistorial([]));
+    const cargarHistorial = async () => {
+      try {
+        setCargando(true);
+        const { data } = await apiClient.get("/ingresos");
+        setHistorial(data);
+      } catch (error) {
+        setMensaje(`❌ ${error.message}`);
+        setHistorial([]);
+      } finally {
+        setCargando(false);
+      }
+    };
+
+    cargarHistorial();
   }, []);
 
   const categorias = [
@@ -55,28 +67,22 @@ export default function Ingresos() {
     }
 
     try {
-      const response = await fetch("http://localhost:5000/api/ingresos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+      payload.monto = Number(payload.monto);
+      await apiClient.post("/ingresos", payload);
+      setMensaje("✅ Ingreso registrado correctamente");
+      setForm({
+        descripcion: "",
+        monto: "",
+        fecha: "",
+        categoria: "",
+        tipoFlujo: "Operativo",
+        fuente: "",
+        fuenteTexto: ""
       });
-
-      if (response.ok) {
-        setMensaje("✅ Ingreso registrado correctamente");
-        setForm({
-          descripcion: "",
-          monto: "",
-          fecha: "",
-          categoria: "",
-          tipoFlujo: "Operativo",
-          fuente: "",
-          fuenteTexto: ""
-        });
-      } else {
-        setMensaje("❌ Error al guardar el ingreso");
-      }
+      const { data } = await apiClient.get("/ingresos");
+      setHistorial(data);
     } catch (error) {
-      setMensaje("❌ Error al conectar con el servidor");
+      setMensaje(`❌ ${error.message}`);
     }
   };
 
@@ -99,6 +105,12 @@ export default function Ingresos() {
   return (
     <div className="max-w-xl mx-auto mt-10 bg-white p-8 rounded shadow">
       <h2 className="text-2xl font-bold mb-6 text-center">Registrar Ingreso</h2>
+
+      {cargando && (
+        <div className="mb-4 p-2 text-center text-sm text-blue-700 bg-blue-100 rounded">
+          Cargando historial de ingresos...
+        </div>
+      )}
 
       {mensaje && (
         <div className={`mb-4 p-2 text-center text-sm ${mensaje.includes("✅") ? "text-green-700 bg-green-100" : "text-red-700 bg-red-100"} rounded`}>

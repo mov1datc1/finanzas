@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
 import { format } from "date-fns";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { ExclamationTriangleIcon, PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
+import apiClient from "../services/apiClient";
 
 const categoriasIngreso = ["Ventas", "Inversión externa", "Cobro de servicios", "Préstamo", "Pago proyecto", "Anticipo proyecto"];
 const categoriasEgreso = ["Herramientas", "Salario", "Renta", "Marketing", "Préstamo", "Bono"];
-const tiposFlujo = ["Operativo", "Financiero", "Inversión"];
+const tiposFlujo = ["Operativo", "Financiamiento", "Inversión"];
 
 const ResumenFinanciero = () => {
   const [ingresos, setIngresos] = useState([]);
@@ -18,10 +18,26 @@ const ResumenFinanciero = () => {
   const [editando, setEditando] = useState(null);
   const [formEdit, setFormEdit] = useState({ descripcion: "", monto: 0, fecha: "", categoria: "", tipoFlujo: "" });
   const [confirmacion, setConfirmacion] = useState({ id: null, tipo: "" });
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState("");
 
-  const fetchData = () => {
-    axios.get("http://localhost:5000/api/ingresos").then((res) => setIngresos(res.data));
-    axios.get("http://localhost:5000/api/egresos").then((res) => setEgresos(res.data));
+  const fetchData = async () => {
+    try {
+      setCargando(true);
+      setError("");
+      const [resIngresos, resEgresos] = await Promise.all([
+        apiClient.get("/ingresos"),
+        apiClient.get("/egresos")
+      ]);
+      setIngresos(resIngresos.data);
+      setEgresos(resEgresos.data);
+    } catch (err) {
+      setError(err.message);
+      setIngresos([]);
+      setEgresos([]);
+    } finally {
+      setCargando(false);
+    }
   };
 
   useEffect(() => {
@@ -31,10 +47,14 @@ const ResumenFinanciero = () => {
   const confirmarEliminacion = (id, tipo) => setConfirmacion({ id, tipo });
   const cancelarConfirmacion = () => setConfirmacion({ id: null, tipo: "" });
   const ejecutarEliminacion = async () => {
-    const url = `http://localhost:5000/api/${confirmacion.tipo}/${confirmacion.id}`;
-    await axios.delete(url);
-    cancelarConfirmacion();
-    fetchData();
+    const url = `/${confirmacion.tipo}/${confirmacion.id}`;
+    try {
+      await apiClient.delete(url);
+      cancelarConfirmacion();
+      fetchData();
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
   const iniciarEdicion = (registro, tipo) => {
@@ -48,10 +68,15 @@ const ResumenFinanciero = () => {
   };
 
   const guardarEdicion = async () => {
-    const url = `http://localhost:5000/api/${editando.tipo}/${editando.id}`;
-    await axios.put(url, formEdit);
-    cancelarEdicion();
-    fetchData();
+    const url = `/${editando.tipo}/${editando.id}`;
+    try {
+      const { _id, ...editable } = formEdit;
+      await apiClient.put(url, { ...editable, monto: Number(editable.monto ?? 0) });
+      cancelarEdicion();
+      fetchData();
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
   const filtrarRegistros = (data) => {
@@ -92,6 +117,19 @@ const ResumenFinanciero = () => {
           Exportar PDF
         </button>
       </div>
+
+      {cargando && (
+        <div className="mb-4 rounded bg-blue-50 p-3 text-blue-700">
+          Cargando información financiera...
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-4 flex items-center gap-2 rounded bg-red-50 p-3 text-red-700">
+          <ExclamationTriangleIcon className="h-5 w-5" />
+          {error}
+        </div>
+      )}
 
        <div className="flex gap-4 mb-6">
         <select className="border rounded px-3 py-2" value={mesSeleccionado} onChange={(e) => setMesSeleccionado(e.target.value)}>

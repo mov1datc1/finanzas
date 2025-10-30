@@ -1,6 +1,5 @@
 // src/components/IndicadoresFinancieros.jsx
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
 import {
   BarChart,
   Bar,
@@ -13,19 +12,47 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
+import apiClient from '../services/apiClient';
 
 const IndicadoresFinancieros = () => {
   const [data, setData] = useState([]);
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    axios.get("http://localhost:5000/api/resumen-financiero/ebitda")
-      .then((res) => setData(res.data))
-      .catch((err) => console.error("Error cargando datos de EBITDA:", err));
+    const cargarIndicadores = async () => {
+      try {
+        setCargando(true);
+        setError('');
+        const respuesta = await apiClient.get('/resumen-financiero/ebitda');
+        setData(respuesta.data);
+      } catch (err) {
+        console.error("Error cargando datos de EBITDA:", err);
+        setError(err.message);
+        setData([]);
+      } finally {
+        setCargando(false);
+      }
+    };
+
+    cargarIndicadores();
   }, []);
 
   return (
     <div className="bg-white p-6 rounded-2xl shadow-md mt-6">
       <h2 className="text-2xl font-semibold mb-4 text-gray-800">Indicadores Financieros</h2>
+
+      {cargando && (
+        <div className="mb-4 rounded bg-blue-50 p-3 text-blue-700">
+          Cargando indicadores...
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-4 rounded bg-red-50 p-3 text-red-700">
+          {error}
+        </div>
+      )}
 
       {/* Tarjeta resumen de EBITDA del mes actual */}
       {data.length > 0 && (

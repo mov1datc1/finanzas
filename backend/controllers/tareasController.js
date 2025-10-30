@@ -1,8 +1,21 @@
 const Tarea = require('../models/Tarea');
 const dayjs = require('dayjs');
 
-const obtenerMesActual = () => dayjs().format('YYYY-MM');
-const obtenerMesAnterior = () => dayjs().subtract(1, 'month').format('YYYY-MM');
+const obtenerMesActual = () => {
+  const actual = dayjs();
+  return {
+    mes: actual.month(),
+    año: actual.year()
+  };
+};
+
+const obtenerMesAnterior = () => {
+  const anterior = dayjs().subtract(1, 'month');
+  return {
+    mes: anterior.month(),
+    año: anterior.year()
+  };
+};
 
 exports.obtenerTareas = async (req, res) => {
   try {
@@ -55,19 +68,24 @@ exports.eliminarTarea = async (req, res) => {
 
 exports.clonarTareasMesAnterior = async (req, res) => {
   try {
-    const mesActual = obtenerMesActual();
-    const mesAnterior = obtenerMesAnterior();
+    const { mes: mesActual, año: añoActual } = obtenerMesActual();
+    const { mes: mesAnterior, año: añoAnterior } = obtenerMesAnterior();
 
-    const yaExisten = await Tarea.find({ mes: mesActual });
+    const yaExisten = await Tarea.find({ mes: mesActual, año: añoActual });
     if (yaExisten.length > 0) {
       return res.status(200).json({ mensaje: 'Ya hay tareas para este mes' });
     }
 
-    const tareasAnteriores = await Tarea.find({ mes: mesAnterior });
+    const tareasAnteriores = await Tarea.find({ mes: mesAnterior, año: añoAnterior });
+    if (tareasAnteriores.length === 0) {
+      return res.status(200).json({ mensaje: 'No hay tareas del mes anterior para clonar' });
+    }
+
     const tareasClonadas = tareasAnteriores.map(t => ({
       descripcion: t.descripcion,
       completada: false,
-      mes: mesActual
+      mes: mesActual,
+      año: añoActual
     }));
 
     await Tarea.insertMany(tareasClonadas);
