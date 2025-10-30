@@ -3,10 +3,17 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
 
-const DEFAULT_ALLOWED_ORIGINS = [
+const REQUIRED_ALLOWED_ORIGINS = [
   'https://finanzas-yi56.vercel.app',
+];
+
+const DEFAULT_ALLOWED_ORIGINS = [
+  ...REQUIRED_ALLOWED_ORIGINS,
   'https://finanzas-gamma.vercel.app',
 ];
+
+const ALLOWED_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'];
+const ALLOWED_HEADERS = ['Content-Type', 'Authorization', 'Accept'];
 
 const parseAllowedOrigins = (value) => {
   if (!value) {
@@ -53,9 +60,13 @@ const corsOptions = {
 
     return callback(new Error(`Origen no permitido por CORS: ${origin}`));
   },
+  methods: ALLOWED_METHODS,
+  allowedHeaders: ALLOWED_HEADERS,
+  optionsSuccessStatus: 204,
 };
 
 app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json());
 
 app.use((req, res, next) => {
@@ -68,8 +79,8 @@ app.use((req, res, next) => {
     res.setHeader('Vary', 'Origin');
   }
 
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  res.setHeader('Access-Control-Allow-Methods', ALLOWED_METHODS.join(','));
+  res.setHeader('Access-Control-Allow-Headers', ALLOWED_HEADERS.join(','));
 
   if (req.method === 'OPTIONS') {
     return res.sendStatus(204);
