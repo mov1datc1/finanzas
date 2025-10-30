@@ -21,8 +21,55 @@ const parseAllowedOrigins = (value) => {
 const allowedOrigins = parseAllowedOrigins(process.env.ALLOWED_ORIGINS);
 
 const app = express();
-app.use(cors({ origin: allowedOrigins ?? true }));
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    if (!allowedOrigins) {
+      return callback(null, true);
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`Origen no permitido por CORS: ${origin}`));
+  },
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
+
+app.use((req, res, next) => {
+  const requestOrigin = req.headers.origin;
+
+  if (!allowedOrigins) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  } else if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
+    res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+    res.setHeader('Vary', 'Origin');
+  }
+
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+
+  next();
+});
+
+app.use((err, req, res, next) => {
+  if (err instanceof Error && err.message.startsWith('Origen no permitido por CORS')) {
+    return res.status(403).json({ error: err.message });
+  }
+
+  next(err);
+});
 
 // Importar rutas
 const ingresosRoutes = require('./routes/ingresos');
