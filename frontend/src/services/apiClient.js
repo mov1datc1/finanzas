@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const DEFAULT_API_HOST = 'https://finanzas-gamma.vercel.app';
+const REQUIRED_ENV_VARIABLE = 'VITE_API_BASE_URL';
+const DEFAULT_DEV_API_HOST = 'http://localhost:5000';
 
 const normaliseHost = (value) => {
   if (typeof value !== 'string') {
@@ -11,10 +12,25 @@ const normaliseHost = (value) => {
   return trimmed.length > 0 ? trimmed : null;
 };
 
-const rawEnvHost = normaliseHost(import.meta.env.VITE_API_URL);
-const fallbackHost = import.meta.env.DEV ? 'http://localhost:5000' : DEFAULT_API_HOST;
+const resolveHost = () => {
+  const envHost = normaliseHost(
+    import.meta.env[REQUIRED_ENV_VARIABLE] ?? import.meta.env.VITE_API_URL,
+  );
 
-const hostWithoutTrailingSlash = (rawEnvHost ?? fallbackHost).replace(/\/$/, '');
+  if (envHost) {
+    return envHost;
+  }
+
+  if (import.meta.env.DEV) {
+    return DEFAULT_DEV_API_HOST;
+  }
+
+  throw new Error(
+    `La variable de entorno ${REQUIRED_ENV_VARIABLE} es obligatoria en producción para configurar la URL del backend`,
+  );
+};
+
+const hostWithoutTrailingSlash = resolveHost().replace(/\/$/, '');
 const baseURL = hostWithoutTrailingSlash.endsWith('/api')
   ? hostWithoutTrailingSlash
   : `${hostWithoutTrailingSlash}/api`;
