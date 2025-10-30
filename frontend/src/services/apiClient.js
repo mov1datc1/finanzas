@@ -1,6 +1,11 @@
 import axios from 'axios';
 
-const host = (import.meta.env.VITE_API_URL ?? 'http://localhost:5000').replace(/\/$/, '');
+const DEFAULT_API_HOST = 'https://finanzas-gamma.vercel.app';
+
+const rawHost = (import.meta.env.VITE_API_URL
+  ?? (import.meta.env.DEV ? 'http://localhost:5000' : DEFAULT_API_HOST));
+
+const host = rawHost.replace(/\/$/, '');
 const baseURL = host.endsWith('/api') ? host : `${host}/api`;
 
 const apiClient = axios.create({
