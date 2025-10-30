@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
 import {
   BarChart,
   Bar,
@@ -14,15 +13,37 @@ import {
   LineChart,
   Line
 } from "recharts";
+import apiClient from "../services/apiClient";
 
 const KPIsFinancieros = () => {
   const [datos, setDatos] = useState([]);
   const [anio, setAnio] = useState(2025);
   const [tiposFlujo, setTiposFlujo] = useState([]);
+  const [cargando, setCargando] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    axios.get(`http://localhost:5000/api/kpis?year=${anio}`).then((res) => setDatos(res.data));
-    axios.get(`http://localhost:5000/api/flujo-tipos?year=${anio}`).then((res) => setTiposFlujo(res.data));
+    const cargarDatos = async () => {
+      try {
+        setCargando(true);
+        setError("");
+        const [kpiRes, tiposRes] = await Promise.all([
+          apiClient.get(`/kpis`, { params: { year: anio } }),
+          apiClient.get(`/flujo-tipos`, { params: { year: anio } })
+        ]);
+        setDatos(kpiRes.data);
+        setTiposFlujo(tiposRes.data);
+      } catch (err) {
+        console.error("Error al cargar KPIs:", err);
+        setError(err.message);
+        setDatos([]);
+        setTiposFlujo([]);
+      } finally {
+        setCargando(false);
+      }
+    };
+
+    cargarDatos();
   }, [anio]);
 
   const meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
@@ -44,6 +65,18 @@ const KPIsFinancieros = () => {
           </option>
         ))}
       </select>
+
+      {cargando && (
+        <div className="mb-4 rounded bg-blue-50 p-3 text-blue-700">
+          Cargando métricas financieras...
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-4 rounded bg-red-50 p-3 text-red-700">
+          {error}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white p-4 rounded shadow">
