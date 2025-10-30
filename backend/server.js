@@ -3,22 +3,37 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
 
+const DEFAULT_ALLOWED_ORIGINS = [
+  'https://finanzas-yi56.vercel.app',
+  'https://finanzas-gamma.vercel.app',
+];
+
 const parseAllowedOrigins = (value) => {
-  if (!value) return undefined;
+  if (!value) {
+    return { allowAll: false, origins: DEFAULT_ALLOWED_ORIGINS };
+  }
 
   const origins = value
     .split(',')
     .map(origin => origin.trim())
     .filter(Boolean);
 
-  if (origins.length === 0 || origins.includes('*')) {
-    return undefined;
+  if (origins.length === 0) {
+    return { allowAll: false, origins: DEFAULT_ALLOWED_ORIGINS };
   }
 
-  return origins;
+  if (origins.includes('*')) {
+    return { allowAll: true, origins: [] };
+  }
+
+  const uniqueOrigins = Array.from(new Set([...origins, ...DEFAULT_ALLOWED_ORIGINS]));
+  return { allowAll: false, origins: uniqueOrigins };
 };
 
-const allowedOrigins = parseAllowedOrigins(process.env.ALLOWED_ORIGINS);
+const { allowAllOrigins, origins: allowedOrigins } = (() => {
+  const { allowAll, origins } = parseAllowedOrigins(process.env.ALLOWED_ORIGINS);
+  return { allowAllOrigins: allowAll, origins };
+})();
 
 const app = express();
 
@@ -28,7 +43,7 @@ const corsOptions = {
       return callback(null, true);
     }
 
-    if (!allowedOrigins) {
+    if (allowAllOrigins) {
       return callback(null, true);
     }
 
@@ -46,7 +61,7 @@ app.use(express.json());
 app.use((req, res, next) => {
   const requestOrigin = req.headers.origin;
 
-  if (!allowedOrigins) {
+  if (allowAllOrigins) {
     res.setHeader('Access-Control-Allow-Origin', '*');
   } else if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
     res.setHeader('Access-Control-Allow-Origin', requestOrigin);
